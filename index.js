@@ -33,6 +33,20 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('Not Found');
     }
+  } else if (req.method === 'PUT') {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      const buffer = Buffer.concat(chunks);
+      try {
+        await fs.writeFile(cacheFilePath, buffer);
+        res.writeHead(201, { 'Content-Type': 'text/plain' });
+        res.end('Created');
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Server Error');
+      }
+    });
   } else {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Hello from proxy server!');
