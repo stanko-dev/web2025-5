@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
 const { program } = require('commander');
+const superagent = require('superagent');
 
 program
   .requiredOption('-h, --host <host>', 'Server host')
@@ -21,8 +22,8 @@ async function ensureCacheDir() {
 }
 
 const server = http.createServer(async (req, res) => {
-  const httpCode = req.url.slice(1);
-  const cacheFilePath = path.join(options.cache, `${httpCode}.jpg`);
+  const httpCode = req.url.slice(1); 
+  const cacheFilePath = path.join(options.cache, `${httpCode}.jpg`); 
 
   if (req.method === 'GET') {
     try {
@@ -30,8 +31,26 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'image/jpeg' });
       res.end(data);
     } catch (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Not Found');
+      if (err.code === 'ENOENT') {
+        try {
+          const response = await superagent
+            .get(`https://http.cat/${httpCode}.jpg`)
+            .responseType('arraybuffer'); 
+
+          const imageBuffer = Buffer.from(response.body);
+
+          await fs.writeFile(cacheFilePath, imageBuffer);
+
+          res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+          res.end(imageBuffer);
+        } catch (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Not Found');
+        }
+      } else {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Server Error');
+      }
     }
   } else if (req.method === 'PUT') {
     const chunks = [];
