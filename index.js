@@ -47,6 +47,15 @@ const server = http.createServer(async (req, res) => {
         res.end('Server Error');
       }
     });
+  } else if (req.method === 'DELETE') {
+    try {
+      await fs.unlink(cacheFilePath);
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.end('Deleted');
+    } catch (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    }
   } else {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Hello from proxy server!');
