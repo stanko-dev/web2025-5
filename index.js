@@ -1,28 +1,49 @@
-const { program } = require('commander');
 const http = require('http');
+const fs = require('fs').promises;
+const path = require('path');
+const { program } = require('commander');
 
 program
-    .requiredOption('-h, --host <host>', 'server address')
-    .requiredOption('-p, --port <port>', 'server port')
-    .requiredOption('-c, --cache <path>', 'path to cache directory');
-
-program.parse(process.argv);
+  .requiredOption('-h, --host <host>', 'Server host')
+  .requiredOption('-p, --port <port>', 'Server port')
+  .requiredOption('-c, --cache <cache>', 'Cache directory')
+  .parse(process.argv);
 
 const options = program.opts();
 
-// Check for required parameters
-if (!options.host || !options.port || !options.cache) {
-    console.error('Error: All parameters (--host, --port, --cache) are required.');
+async function ensureCacheDir() {
+  try {
+    await fs.mkdir(options.cache, { recursive: true });
+  } catch (err) {
+    console.error('Error creating cache directory:', err);
     process.exit(1);
+  }
 }
 
-// Create web server
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+  const httpCode = req.url.slice(1);
+  const cacheFilePath = path.join(options.cache, `${httpCode}.jpg`);
+
+  if (req.method === 'GET') {
+    try {
+      const data = await fs.readFile(cacheFilePath);
+      res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+      res.end(data);
+    } catch (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    }
+  } else {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Web server is running! Wow it is running while I am making those changes!!!');
+    res.end('Hello from proxy server!');
+  }
 });
 
-// Start server
-server.listen(options.port, options.host, () => {
-    console.log(`Server started at http://${options.host}:${options.port}`);
-});
+async function startServer() {
+  await ensureCacheDir();
+  server.listen(options.port, options.host, () => {
+    console.log(`Server running at http://${options.host}:${options.port}/`);
+  });
+}
+
+startServer();
